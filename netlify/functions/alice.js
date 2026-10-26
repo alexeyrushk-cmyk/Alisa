@@ -47,7 +47,20 @@ async function ask(history) {
 
 exports.handler = async (event) => {
   let body;
-  try { body = JSON.parse(event.body || '{}'); } catch { return { statusCode: 400, body: 'bad' }; }
+  try {
+    const raw = event.isBase64Encoded
+      ? Buffer.from(event.body || '', 'base64').toString('utf-8')
+      : event.body || '{}';
+    body = JSON.parse(raw || '{}');
+  } catch (e) {
+    console.error('parse error', e.message, event.body);
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ version: '1.0', response: { text: 'Ошибка разбора запроса', end_session: false } }),
+    };
+  }
+
   const req = body.request || {};
   const utt = (req.original_utterance || '').trim();
   const cmd = (req.command || '').trim().toLowerCase();
