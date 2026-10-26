@@ -44,7 +44,10 @@ export default async (req) => {
       const job = await store.get(key, { type: "json" });
       if (!job) return aliceReply("У меня нет сохранённого ответа. Сначала задай вопрос.", sessionState, false);
       if (job.status === "pending") return aliceReply("Gemini ещё думает. Скажи «Продолжай» чуть позже.", sessionState, false);
-      if (job.status === "error") return aliceReply("Не получилось получить ответ от Gemini. Попробуй задать вопрос ещё раз.", sessionState, false);
+      if (job.status === "error") {
+        const detail = job.errorMessage ? ` Причина: ${String(job.errorMessage).slice(0, 350)}.` : "";
+        return aliceReply(`Не получилось получить ответ от Gemini.${detail} Попробуй задать вопрос ещё раз.`, sessionState, false);
+      }
       if (job.status === "done") {
         await store.setJSON(key, { ...job, status: "delivered", updatedAt: Date.now() });
         return aliceReply(job.answer || "Ответ пустой. Попробуй задать вопрос иначе.", sessionState, false);
@@ -71,7 +74,7 @@ export default async (req) => {
     });
 
     if (!start.ok && start.status !== 202) {
-      await store.setJSON(key, { status: "error", jobId, question: command, updatedAt: Date.now() });
+      await store.setJSON(key, { status: "error", jobId, question: command, errorMessage: `Не удалось запустить фоновую функцию (HTTP ${start.status})`, updatedAt: Date.now() });
       return aliceReply("Не удалось запустить обработку Gemini. Попробуй ещё раз чуть позже.", sessionState, false);
     }
 
